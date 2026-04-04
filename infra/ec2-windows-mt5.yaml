@@ -5,7 +5,7 @@ Parameters:
   InstanceType:
     Type: String
     Default: t3.medium
-    Description: EC2 インスタンスタイプ
+    Description: EC2 Instance Type
     AllowedValues:
       - t3.medium
       - t3.large
@@ -14,20 +14,20 @@ Parameters:
   VolumeSize:
     Type: Number
     Default: 100
-    Description: EBS ボリュームサイズ（GB）
+    Description: EBS Volume Size (GB)
     MinValue: 50
     MaxValue: 1000
 
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
-    Description: EC2 KeyPair 名（事前に生成が必要）
+    Description: EC2 KeyPair Name (must be pre-generated)
 
 Resources:
-  # セキュリティグループ
+  # Security Group
   EC2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: RDP + SSH アクセス用
+      GroupDescription: RDP and SSH access
       SecurityGroupIngress:
         # RDP (3389)
         - IpProtocol: tcp
@@ -131,25 +131,25 @@ Resources:
 
 Outputs:
   InstanceId:
-    Description: EC2 インスタンス ID
+    Description: EC2 Instance ID
     Value: !Ref EC2Instance
 
   PublicIP:
-    Description: パブリック IP アドレス
+    Description: Public IP Address
     Value: !GetAtt EC2Instance.PublicIp
 
   PrivateIP:
-    Description: プライベート IP アドレス
+    Description: Private IP Address
     Value: !GetAtt EC2Instance.PrivateIp
 
   RDPCommand:
-    Description: RDP 接続コマンド
+    Description: RDP Connection Command
     Value: !Sub 'mstsc /v:${EC2Instance.PublicIp}'
 
   SSHCommand:
-    Description: SSH 接続コマンド（キーペア名を置き換え）
+    Description: SSH Connection Command (replace your-key.pem)
     Value: !Sub 'ssh -i your-key.pem Administrator@${EC2Instance.PublicIp}'
 
   SecurityGroupId:
-    Description: セキュリティグループ ID
+    Description: Security Group ID
     Value: !Ref EC2SecurityGroup
