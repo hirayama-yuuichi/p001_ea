@@ -1,0 +1,32 @@
+# Data
+data/
+*.csv
+*.xlsx
+
+# MT5
+*.ex5
+*.ex4
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Old
+_old/
