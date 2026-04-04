@@ -9,14 +9,14 @@
 - [ ] Claude Code (Windows) インストール
 
 ## リポジトリ整備
-- [ ] git init
-- [ ] .gitignore 作成
-- [ ] フォルダ構成作成（docs/, mt5/, ml/, data/, infra/）
-- [ ] docs/ サブフォルダ作成
-- [ ] CLAUDE.md 作成
+- [x] git init （2026-04-04）
+- [x] .gitignore 作成 （2026-04-04）
+- [x] フォルダ構成作成（docs/, mt5/, ml/, data/, infra/） （2026-04-04）
+- [x] docs/ サブフォルダ作成 （2026-04-04）
+- [x] CLAUDE.md 作成 （2026-04-04）
 
 ## ドキュメント
-- [ ] Claude Code tips まとめ（docs/tips/）
+- [x] Claude Code tips まとめ（docs/tips/） （2026-04-04）
 
 ## 情報発信（X自動投稿）
 - [ ] X Developer Account 登録
