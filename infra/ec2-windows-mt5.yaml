@@ -45,7 +45,7 @@ Resources:
         - Key: Name
           Value: p001-ea-sg
 
-  # IAM ロール（SSM Session Manager + CloudWatch Logs 用）
+  # IAM Role (SSM Session Manager + CloudWatch Logs)
   EC2Role:
     Type: AWS::IAM::Role
     Properties:
@@ -66,11 +66,11 @@ Resources:
       Roles:
         - !Ref EC2Role
 
-  # EC2 インスタンス
+  # EC2 Instance
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: !Sub '{{resolve:ssm:/aws/service/ami-windows-latest/Windows_Server-2022-English-Core-Base:1}}'
+      ImageId: '{{resolve:ssm:/aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base:1}}'
       InstanceType: !Ref InstanceType
       KeyName: !Ref KeyName
       SecurityGroupIds:
@@ -83,33 +83,33 @@ Resources:
             VolumeType: gp3
             DeleteOnTermination: true
       UserData:
-        Fn::Base64: !Sub |
+        Fn::Base64: |
           <powershell>
-          # ロギング
+          # Logging
           $logPath = "C:\cfn-init.log"
           Start-Transcript -Path $logPath -Append
 
-          # Chocolatey インストール
+          # Install Chocolatey
           Write-Host "Installing Chocolatey..."
           Set-ExecutionPolicy Bypass -Scope Process -Force
           [System.Net.ServicePointManager]::SecurityProtocol = 3072
           iex ((New-Object Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
-          # Git インストール
+          # Install Git
           Write-Host "Installing Git..."
           choco install git -y
 
-          # Python インストール
+          # Install Python
           Write-Host "Installing Python..."
           choco install python -y
 
-          # OpenSSH サーバー インストール・起動
+          # Install and start OpenSSH Server
           Write-Host "Installing OpenSSH..."
           Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
           Start-Service sshd
           Set-Service -Name sshd -StartupType Automatic
 
-          # 自動シャットダウンスケジュール（起動後 4 時間）
+          # Auto-shutdown after 4 hours
           Write-Host "Setting up auto-shutdown after 4 hours..."
           $shutdownTime = (Get-Date).AddHours(4)
           $scheduleParams = @{
