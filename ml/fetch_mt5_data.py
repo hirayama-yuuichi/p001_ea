@@ -27,12 +27,12 @@ except ImportError:
 DATA_DIR   = Path(__file__).parent.parent / "data" / "raw"
 
 # 取得対象: (シンボル, 時間足)のタプルリスト
-# 取得順序: XAUUSD(M1→M5→M15→M60) → DXY(M5)
+# 取得順序: XAUUSD(M1→M5→M15→H1) → DXY(M5)
 FETCH_TARGETS = [
     ("XAUUSD", mt5.TIMEFRAME_M1),
     ("XAUUSD", mt5.TIMEFRAME_M5),
     ("XAUUSD", mt5.TIMEFRAME_M15),
-    ("XAUUSD", mt5.TIMEFRAME_M60),
+    ("XAUUSD", mt5.TIMEFRAME_H1),
     ("DXY", mt5.TIMEFRAME_M5),
 ]
 
@@ -46,7 +46,7 @@ def timeframe_to_string(timeframe: int) -> str:
         mt5.TIMEFRAME_M1: "M1",
         mt5.TIMEFRAME_M5: "M5",
         mt5.TIMEFRAME_M15: "M15",
-        mt5.TIMEFRAME_M60: "M60",
+        mt5.TIMEFRAME_H1: "H1",
     }
     return timeframe_map.get(timeframe, "UNKNOWN")
 
@@ -145,7 +145,7 @@ def main():
     print(f"=== MT5データ取得スクリプト ===")
     print(f"対象年: {target_year}")
     print(f"期間: {date_from.date()} 〜 {date_to.date()}")
-    print(f"取得対象: XAUUSD(M1,M5,M15,M60) + DXY(M5)")
+    print(f"取得対象: XAUUSD(M1,M5,M15,H1) + DXY(M5)")
     print()
 
     # MT5接続
