@@ -24,7 +24,7 @@
 ## ドキュメント
 - [x] Claude Code tips まとめ（docs/tips/） （2026-04-04）
 
-## 情報発信（X自動投稿）
+## 情報発信（X自動投稿）※保留
 - [ ] X Developer Account 登録
 - [ ] API Key 取得
 - [ ] 投稿スクリプト作成
