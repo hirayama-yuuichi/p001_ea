@@ -1,7 +1,8 @@
-# Data
-data/
-*.csv
-*.xlsx
+# Data（フォルダ構造は管理、データファイルは除外）
+data/**/*.parquet
+data/**/*.csv
+data/**/*.xlsx
+!data/**/.gitkeep
 
 # MT5
 *.ex5
