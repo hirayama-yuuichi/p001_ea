@@ -22,7 +22,7 @@ except ImportError:
 # ---- 設定 ----
 SYMBOL     = "XAUUSD"
 TIMEFRAME  = mt5.TIMEFRAME_M5       # 5分足
-DATE_FROM  = datetime(2022, 1, 1, tzinfo=timezone.utc)   # 取得開始日
+DATE_FROM  = datetime(2025, 7, 21, tzinfo=timezone.utc)  # MT5にロードされている最古日
 DATE_TO    = datetime.now(timezone.utc)                   # 今日まで
 DATA_DIR   = Path(__file__).parent.parent / "data" / "raw"
 # --------------
