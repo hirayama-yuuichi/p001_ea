@@ -23,20 +23,29 @@ EC2 Windows
 ### 1. ローカルからデータ取得実行
 
 ```bash
-# ローカル PC（Linux）から実行
+# ローカル PC（Linux）から実行（.venv 使用）
 ssh -i ~/.ssh/ec2_key.pem hy@[EC2_PUBLIC_IP] \
-  "cd p001_ea && python ml/fetch_mt5_data.py"
+  "cd p001_ea && .\.venv\Scripts\python.exe ml/fetch_mt5_data.py"
+
+# または --year パラメータで指定年を取得
+ssh -i ~/.ssh/ec2_key.pem hy@[EC2_PUBLIC_IP] \
+  "cd p001_ea && .\.venv\Scripts\python.exe ml/fetch_mt5_data.py --year 2026"
 ```
 
 **実行内容（EC2 側）:**
 - MT5 接続
 - XAUUSD / DXY データ取得（M1, M5, M15, M60）
+  - 取得順: XAUUSD(M1→M5→M15→M60) → DXY(M5)
 - Parquet 保存
 - ログ出力
 
 **実行時間:**
 - 初回（5年）: 5〜10分
 - 更新（1年）: 1〜2分
+
+**エラーハンドリング:**
+- ネットワークタイムアウト等で単一シンボル失敗時: 該当ファイルをスキップして続行
+- 部分的な破損ファイルは自動削除せず、手動確認して再実行
 
 ---
 
@@ -68,17 +77,26 @@ def load_xauusd_m5():
 ### 必要な状態
 - [ ] Windows にログイン済み（hy ユーザー）
 - [ ] MT5 起動状態
-- [ ] Python 仮想環境有効（`fx59v2`）
+- [ ] Python 仮想環境有効（`p001_ea/.venv`）
 - [ ] SSH サーバー起動（標準で起動）
+
+### 環境セットアップ（EC2 側、初回のみ）
+```bash
+# Windows PowerShell で実行
+cd p001_ea
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+```
 
 ### 確認コマンド（ローカルから）
 ```bash
 # 接続確認
 ssh -i ~/.ssh/ec2_key.pem hy@[EC2_PUBLIC_IP] "echo OK"
 
-# Python 確認
+# Python 確認（.venv 使用）
 ssh -i ~/.ssh/ec2_key.pem hy@[EC2_PUBLIC_IP] \
-  "python -c 'import MetaTrader5; print(\"OK\")'"
+  "cd p001_ea && .\.venv\Scripts\python.exe -c 'import MetaTrader5; print(\"OK\")'"
 ```
 
 ---
@@ -117,12 +135,14 @@ pip install pandas pyarrow paramiko  # paramiko は方法B用
 EC2_HOST="hy@[EC2_PUBLIC_IP]"
 EC2_KEY="~/.ssh/ec2_key.pem"
 LOCAL_DATA_DIR="./data/raw"
+TARGET_YEAR=${1:-2026}  # 第1引数で年を指定（省略時は当年）
 
-echo "=== EC2 からデータ取得開始 ==="
+echo "=== EC2 からデータ取得開始（年: $TARGET_YEAR） ==="
 
-# EC2 で取得実行
+# EC2 で取得実行（.venv 使用）
 echo "EC2 で fetch_mt5_data.py 実行中..."
-ssh -i $EC2_KEY $EC2_HOST "cd p001_ea && python ml/fetch_mt5_data.py"
+ssh -i $EC2_KEY $EC2_HOST \
+  "cd p001_ea && .\.venv\Scripts\python.exe ml/fetch_mt5_data.py --year $TARGET_YEAR"
 
 # SCP で転送
 echo "Parquet ファイルを転送中..."
@@ -133,7 +153,11 @@ echo "=== 完了 ==="
 
 実行：
 ```bash
+# 当年（2026）を取得
 bash infra/fetch_data.sh
+
+# 指定年を取得（例: 2025年）
+bash infra/fetch_data.sh 2025
 ```
 
 ---

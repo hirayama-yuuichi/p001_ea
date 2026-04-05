@@ -1,3 +1,20 @@
-MetaTrader5
-pandas
-pyarrow
+# Data Processing
+pandas>=2.0.0
+pyarrow>=15.0.0
+numpy>=1.24.0
+
+# MT5 (Windows only)
+# Note: pip install will fail on non-Windows systems
+# Install on Windows: pip install MetaTrader5
+# MetaTrader5
+
+# Machine Learning / Reinforcement Learning (future)
+# torch>=2.0.0
+# stable-baselines3>=2.0.0
+# gymnasium>=0.28.0
+
+# SSH / Remote Automation (future, for local-side)
+# paramiko>=3.0.0
+
+# Utilities
+python-dotenv>=1.0.0

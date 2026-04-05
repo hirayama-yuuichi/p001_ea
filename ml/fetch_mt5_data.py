@@ -1,11 +1,15 @@
 """
-MT5からXAUUSDの価格データを取得してParquet形式で保存するスクリプト
+MT5からXAUUSD・DXYの価格データを取得してParquet形式で保存するスクリプト
 
 動作環境: EC2 Windows（MetaTrader5ライブラリはWindowsのみ対応）
-保存先: data/raw/XAUUSD_M5_YYYYMMDD_YYYYMMDD.parquet
+使用法:
+  python ml/fetch_mt5_data.py              # 当年（2026年）のみ取得
+  python ml/fetch_mt5_data.py --year 2025 # 指定年を取得
+
+保存先: data/raw/[SYMBOL]_[TIMEFRAME]_YYYYMMDD_YYYYMMDD.parquet
 """
 
-import os
+import argparse
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,12 +24,31 @@ except ImportError:
     sys.exit(1)
 
 # ---- 設定 ----
-SYMBOL     = "XAUUSD"
-TIMEFRAME  = mt5.TIMEFRAME_M5       # 5分足
-DATE_FROM  = datetime(2025, 7, 21, tzinfo=timezone.utc)  # MT5にロードされている最古日
-DATE_TO    = datetime.now(timezone.utc)                   # 今日まで
 DATA_DIR   = Path(__file__).parent.parent / "data" / "raw"
-# --------------
+
+# 取得対象: (シンボル, 時間足)のタプルリスト
+# 取得順序: XAUUSD(M1→M5→M15→M60) → DXY(M5)
+FETCH_TARGETS = [
+    ("XAUUSD", mt5.TIMEFRAME_M1),
+    ("XAUUSD", mt5.TIMEFRAME_M5),
+    ("XAUUSD", mt5.TIMEFRAME_M15),
+    ("XAUUSD", mt5.TIMEFRAME_M60),
+    ("DXY", mt5.TIMEFRAME_M5),
+]
+
+MAX_RETRIES = 3  # リトライ回数
+# ---------------
+
+
+def timeframe_to_string(timeframe: int) -> str:
+    """時間足定数を文字列に変換"""
+    timeframe_map = {
+        mt5.TIMEFRAME_M1: "M1",
+        mt5.TIMEFRAME_M5: "M5",
+        mt5.TIMEFRAME_M15: "M15",
+        mt5.TIMEFRAME_M60: "M60",
+    }
+    return timeframe_map.get(timeframe, "UNKNOWN")
 
 
 def connect_mt5() -> bool:
@@ -40,11 +63,12 @@ def connect_mt5() -> bool:
 
 def fetch_ohlcv(symbol: str, timeframe: int, date_from: datetime, date_to: datetime) -> pd.DataFrame:
     """OHLCVデータを取得してDataFrameで返す"""
-    print(f"データ取得中: {symbol} {date_from.date()} 〜 {date_to.date()}")
+    timeframe_str = timeframe_to_string(timeframe)
+    print(f"データ取得中: {symbol} {timeframe_str} {date_from.date()} 〜 {date_to.date()}")
 
     rates = mt5.copy_rates_range(symbol, timeframe, date_from, date_to)
     if rates is None or len(rates) == 0:
-        print(f"データ取得失敗: {mt5.last_error()}")
+        print(f"データ取得失敗: {symbol} {timeframe_str} - {mt5.last_error()}")
         return pd.DataFrame()
 
     df = pd.DataFrame(rates)
@@ -59,58 +83,123 @@ def fetch_ohlcv(symbol: str, timeframe: int, date_from: datetime, date_to: datet
     })
     df = df[["open", "high", "low", "close", "volume"]]
 
-    print(f"取得件数: {len(df):,}件  期間: {df.index[0]} 〜 {df.index[-1]}")
+    print(f"  取得件数: {len(df):,}件  期間: {df.index[0]} 〜 {df.index[-1]}")
     return df
 
 
-def save_parquet(df: pd.DataFrame, symbol: str, date_from: datetime, date_to: datetime) -> Path:
+def save_parquet(df: pd.DataFrame, symbol: str, timeframe: int, date_from: datetime, date_to: datetime) -> Path:
     """Parquet形式で保存する"""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    filename = f"{symbol}_M5_{date_from.strftime('%Y%m%d')}_{date_to.strftime('%Y%m%d')}.parquet"
+    timeframe_str = timeframe_to_string(timeframe)
+    filename = f"{symbol}_{timeframe_str}_{date_from.strftime('%Y%m%d')}_{date_to.strftime('%Y%m%d')}.parquet"
     filepath = DATA_DIR / filename
     df.to_parquet(filepath)
     size_mb = filepath.stat().st_size / 1024 / 1024
-    print(f"保存完了: {filepath} ({size_mb:.1f} MB)")
+    print(f"  保存完了: {filename} ({size_mb:.1f} MB)")
     return filepath
 
 
+def get_year_date_range(year: int) -> tuple[datetime, datetime]:
+    """指定年の1月1日から12月31日のdatetimeを返す"""
+    date_from = datetime(year, 1, 1, tzinfo=timezone.utc)
+    date_to = datetime(year, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+
+    # 当年の場合は今日までで制限
+    today = datetime.now(timezone.utc)
+    if year == today.year:
+        date_to = today
+
+    return date_from, date_to
+
+
+def fetch_with_retry(symbol: str, timeframe: int, date_from: datetime, date_to: datetime, max_retries: int = MAX_RETRIES) -> pd.DataFrame:
+    """リトライ機能付きでデータ取得"""
+    for attempt in range(1, max_retries + 1):
+        try:
+            df = fetch_ohlcv(symbol, timeframe, date_from, date_to)
+            if not df.empty:
+                return df
+        except Exception as e:
+            print(f"  リトライ {attempt}/{max_retries}: エラー発生 - {e}")
+            if attempt < max_retries:
+                print(f"  {attempt}秒待機中...")
+                import time
+                time.sleep(attempt)
+
+        if attempt == max_retries:
+            print(f"  ⚠️  {symbol} {timeframe_to_string(timeframe)} の取得に失敗。スキップします。")
+            return pd.DataFrame()
+
+    return pd.DataFrame()
+
+
 def main():
+    # コマンドライン引数を解析
+    parser = argparse.ArgumentParser(description="MT5からXAUUSD・DXYデータを取得してParquet保存")
+    parser.add_argument("--year", type=int, default=None, help="取得対象年（例: 2026）。省略時は当年")
+    args = parser.parse_args()
+
+    target_year = args.year if args.year else datetime.now(timezone.utc).year
+    date_from, date_to = get_year_date_range(target_year)
+
+    print(f"=== MT5データ取得スクリプト ===")
+    print(f"対象年: {target_year}")
+    print(f"期間: {date_from.date()} 〜 {date_to.date()}")
+    print(f"取得対象: XAUUSD(M1,M5,M15,M60) + DXY(M5)")
+    print()
+
     # MT5接続
     if not connect_mt5():
         sys.exit(1)
 
     try:
         # シンボル確認
-        symbol_info = mt5.symbol_info(SYMBOL)
-        if symbol_info is None:
-            print(f"シンボル '{SYMBOL}' が見つかりません。MT5のシンボル一覧を確認してください。")
-            sys.exit(1)
+        print("シンボル確認中...")
+        for symbol, _ in FETCH_TARGETS:
+            symbol_info = mt5.symbol_info(symbol)
+            if symbol_info is None:
+                print(f"エラー: シンボル '{symbol}' が見つかりません。")
+                sys.exit(1)
 
-        if not symbol_info.visible:
-            # シンボルが非表示の場合は表示させる
-            mt5.symbol_select(SYMBOL, True)
+            if not symbol_info.visible:
+                mt5.symbol_select(symbol, True)
 
-        print(f"スプレッド: {symbol_info.spread} ポイント")
-        print(f"小数点桁数: {symbol_info.digits}")
+            print(f"  {symbol}: スプレッド={symbol_info.spread}, 小数点={symbol_info.digits}")
+
+        print()
 
         # データ取得
-        df = fetch_ohlcv(SYMBOL, TIMEFRAME, DATE_FROM, DATE_TO)
-        if df.empty:
-            sys.exit(1)
+        failed_targets = []
+        successful_targets = []
 
-        # 基本統計を表示
-        print(f"\n--- 基本統計 ---")
-        print(f"終値の平均: {df['close'].mean():.2f}")
-        print(f"終値の最小: {df['close'].min():.2f}")
-        print(f"終値の最大: {df['close'].max():.2f}")
-        print(f"ATR(14)の平均: {(df['high'] - df['low']).rolling(14).mean().mean():.2f}")
+        for symbol, timeframe in FETCH_TARGETS:
+            df = fetch_with_retry(symbol, timeframe, date_from, date_to)
 
-        # 保存
-        save_parquet(df, SYMBOL, DATE_FROM, DATE_TO)
+            if df.empty:
+                failed_targets.append((symbol, timeframe_to_string(timeframe)))
+            else:
+                # 保存
+                save_parquet(df, symbol, timeframe, date_from, date_to)
+                successful_targets.append((symbol, timeframe_to_string(timeframe)))
+
+        # 結果表示
+        print()
+        print("=== 取得完了 ===")
+        print(f"成功: {len(successful_targets)}/{len(FETCH_TARGETS)}")
+        if successful_targets:
+            for symbol, timeframe in successful_targets:
+                print(f"  ✓ {symbol} {timeframe}")
+
+        if failed_targets:
+            print(f"失敗: {len(failed_targets)}/{len(FETCH_TARGETS)}")
+            for symbol, timeframe in failed_targets:
+                print(f"  ✗ {symbol} {timeframe}")
+            print("\n⚠️  失敗したシンボル・時間足は再度スクリプトを実行してください。")
+            print("     または EC2 接続・MT5 起動状態を確認してください。")
 
     finally:
         mt5.shutdown()
-        print("MT5切断")
+        print("\nMT5切断")
 
 
 if __name__ == "__main__":
