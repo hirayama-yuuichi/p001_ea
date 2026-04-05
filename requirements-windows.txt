@@ -1,0 +1,20 @@
+# Windows 専用 Python 依存パッケージ
+# EC2 Windows の .venv で使用
+# ローカル Linux では requirements.txt を使用（MetaTrader5 無し）
+
+# Data Processing
+pandas>=2.0.0
+pyarrow>=15.0.0
+numpy>=1.24.0
+
+# MT5 Integration (Windows only)
+MetaTrader5
+
+# Utilities
+python-dotenv>=1.0.0
+
+# Machine Learning (optional, for future use)
+# gymnasium>=0.28.0
+# stable-baselines3>=2.0.0
+# gym-anytrading>=1.3.0
+# gym-mtsim>=0.3.0
