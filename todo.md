@@ -12,6 +12,7 @@
 - [x] Claude Desktop インストール確認 （2026-04-05）
 - [x] MT5インストール・起動確認・ログイン （2026-04-05）
 - [x] Claude Code (Windows) インストール （2026-04-05）
+- [x] Claude Code (Windows) 起動確認 （2026-04-05）
 
 ## リポジトリ整備
 - [x] git init （2026-04-04）
