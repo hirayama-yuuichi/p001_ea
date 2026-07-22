@@ -2,6 +2,9 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "../mt5_src"
 		}
 	],
 	"settings": {}
