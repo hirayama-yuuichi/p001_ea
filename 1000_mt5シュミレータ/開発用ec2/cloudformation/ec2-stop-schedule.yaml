@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  指定したEC2インスタンスを毎日 UTC で指定したスケジュールに自動停止する（JST 9,21,0時 相当）。
+  EventBridge Scheduled Rule から SSM Automation ドキュメント AWS-StopEC2Instance を
+  実行してインスタンスを停止する（Lambda不要）。
+
+Parameters:
+  InstanceName:
+    Type: String
+    Description: "停止対象EC2インスタンスの名称（Description表示のみに使用。日本語可）"
+
+  InstanceId:
+    Type: AWS::EC2::Instance::Id
+    Description: "停止対象EC2インスタンスのインスタンスID"
+
+  Schedule:
+    Type: String
+    Default: "cron(0 0,12,15 * * ? *)"
+    Description: "停止スケジュール（UTC cron式）。デフォルトは JST 9,21,0時 相当"
+
+Resources:
+  # SSM Automation が ec2:StopInstances を実行するためのロール
+  AutomationAssumeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "ec2-stop-automation-${InstanceId}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ssm.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StopEc2Instance
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:StopInstances
+                  - ec2:DescribeInstances
+                  - ec2:DescribeInstanceStatus
+                Resource: "*"
+
+  # EventBridge が SSM Automation を起動するためのロール
+  EventBridgeInvokeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "ec2-stop-eventbridge-${InstanceId}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StartAutomationExecution
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ssm:StartAutomationExecution
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}::automation-definition/AWS-StopEC2Instance:*"
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt AutomationAssumeRole.Arn
+
+  StopRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "ec2-stop-${InstanceId}"
+      Description: !Sub "${InstanceName} (${InstanceId}) の停止スケジュール"
+      ScheduleExpression: !Ref Schedule
+      State: ENABLED
+      Targets:
+        - Id: StopEc2
+          Arn: !Sub "arn:aws:ssm:${AWS::Region}::automation-definition/AWS-StopEC2Instance:$DEFAULT"
+          RoleArn: !GetAtt EventBridgeInvokeRole.Arn
+          Input: !Sub
+            - '{"InstanceId":["${InstanceId}"],"AutomationAssumeRole":["${AutomationRoleArn}"]}'
+            - AutomationRoleArn: !GetAtt AutomationAssumeRole.Arn
+
+Outputs:
+  StopRuleArn:
+    Value: !GetAtt StopRule.Arn

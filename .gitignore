@@ -19,6 +19,11 @@ venv/
 .env
 .env.local
 
+# Secrets
+*.pem
+*.ppk
+pass.md
+
 # IDE
 .vscode/
 .claude/
@@ -34,5 +39,4 @@ Thumbs.db
 _old/
 
 # other
-未整理の案/マルチタイムフレームFXトレード戦略 - Claude.mhtml
-未整理の案/強化学習によるFX5分足売買戦略 - Claude.mhtml
+_010_not_up/*
